@@ -2,14 +2,25 @@
 
 """
 LAMMPS Replica Exchange Molecular Dynamics (REMD) trajectories are arranged by
-replica, i.e., each trajectory is a continuous replica that records all the 
+replica, i.e., each traj is a continuous replica that records all the 
 ups and downs in temperature. However, often the requirement is trajectories
 that are continuous in temperature. This requires the LAMMPS REMD trajectories
 to be re-ordered. This script achieves that in parallel using MPI.
 
+Author: Tanmoy Sanyal, Shell lab, Chemical Engineering, UC Santa Barbara
+
+
+Usage
+-----
+To get detailed information about the arguments, flags, etc use:
+python reorderLammpsREMD.py -h or 
+python reorderLammpsREMD.py --help
+
 Features of this script
 -----------------------
 a) reorder LAMMPS REMD trajectories by temperature keeping only desired frames.
+Note: this only handles LAMMPS format trajectories (i.e. .lammpstrj format)
+Trajectories can be gzipped or bz2-compressed.
 
 b) (optionally) calculate configurational weights for each frame at each
 temperature if potential energies are supplied.
@@ -19,9 +30,8 @@ Dependencies
 mpi4py
 pymbar (for getting configurational weights)
 tqdm (for printing pretty progress bars)
-StringIO ( or io if in Python 3.x)
+StringIO (or io if in Python 3.x)
 
-Author: Tanmoy Sanyal, Shell lab, UC Santa Barbara
 """
 
 
@@ -29,28 +39,51 @@ import os, sys, numpy as np, argparse, time, pickle
 
 from mpi4py import MPI
 from tqdm import tqdm, trange
-#import pymbar, whamlib
 import gzip
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
+#import pymbar, whamlib
+
 
 # init MPI
 # (note that all output on screen will be printed only on the ROOT proc)
 ROOT = 0
 comm = MPI.COMM_WORLD
-me = comm.rank 
+me = comm.rank # my proc id
 nproc = comm.size
 
 
-def io_trajfile(trajfn, mode = "rb"):
+def _get_nearest_temp(temps, query_temp):
+    """
+    Helper function to get the nearest temp in a list
+    from a given query_temp
+    
+    :param temps: list of temps.
+    
+    :param query_temp: query temp
+    
+    Returns:
+    idx: index of nearest temp in the list
+    
+    out_temp: nearest temp from the list
+    """
+    
+    if isinstance(temps, list): temps = np.array(temps)
+    idx = np.argmin(abs(temps - query_temp))
+    out_temp = temps[idx]
+    return idx, out_temp
+
+
+def readwrite(trajfn, mode = "rb"):
     """ 
-    Helper function for input/output LAMMPS trajectory files.
+    Helper function for input/output LAMMPS traj files.
     Trajectories may be plain text, .gz or .bz2 compressed.
         
-    : param trajfn: name of LAMMPS trajectory
-    : param mode: "r" ("w") and "rb" ("wb") depending on read or write
+    :param trajfn: name of LAMMPS traj
+    
+    :param mode: "r" ("w") and "rb" ("wb") depending on read or write
         
     Returns: file pointer
     """
@@ -63,26 +96,167 @@ def io_trajfile(trajfn, mode = "rb"):
         return file(trajfn, mode)
 
 
-def get_replica_frames():
+def get_replica_frames(logfn, temps, nswap, writefreq):
     """
-    Get a list of frames 
+    Get a list of frames from each replica that is 
+    at a particular temp. Do this for all temps.
+    
+    :param logfn: master LAMMPS log file that contains the temp
+                  swap history of all replicas
+    
+    :param temps: list of all temps used in the REMD simulation.
+    
+    :param nswap: swap frequency of the REMD simulation
+    
+    :param writefreq: traj dump frequency in LAMMPS
+    
+    Returns: master_frame_dict: dict containing a tuple (replica #, frame #) 
+                                for each temperature
     """
     
-    pass
+    n_rep = len(temps)
+    swap_history = np.loadtxt(logfn, skiprows = 3)
+    master_frame_dict = dict( (n, []) for idx in range(n_rep) ) 
+    
+    # walk through the replicas
+    print("Getting frames from all replicas at temperature:")
+    for n in range(n_rep):
+        print("%3.2f K" % temps[n])
+        rep_inds = [np.where(x[1:] == n)[0][0] for x in swap_history]
+        
+        # case-1: when frames are dumped faster than temp. swaps
+        if writefreq <= nswap:
+            for ii, i in enumerate(rep_inds[:-1]):
+                start = int(ii * nswap / writefreq)
+                stop = int( ii+1) * nswap / writefreq)
+                [master_frame_dict[idx].append( (i,x) ) for x in range(start, stop)]
+        
+        # case-2: when temps. are swapped faster than dumping frames
+        else:
+            nskip = int(writefreq / nswap)
+            [master_frame_dict[n].append( (i,ii) ) for ii, i in enumerate(rep_inds[0::nskip])]
+    
+    return master_frame_dict
 
 
-def get_byte_index():
+def get_byte_index(rep_inds, byteindfns, intrajfns):
     """
+    Get byte indices from (un-ordered) trajectories.
+    
+    :param rep_inds: indices of replicas to process on this proc
+    
+    :param byteindsfns: list of filenames that will contain the byte indices
+    
+    :param intrajfns: list of (unordered) input traj filenames
+    """
+    for n in rep_inds:
+        # check if the byte indices for this traj has aleady been computed
+        if os.path.isfile(byteindfns[n]): continue
+        
+        # extract bytes
+        fobj = readwrite(intrajfns[n]) 
+        byteinds = [ [0,0] ]
+        
+        # place file pointer at first line
+        nframe = 0
+        first_line = fobj.readline()
+        cur_pos = fobj.tell()
+        #TODO: print the log from ROOT proc only
+        pb = tqdm(desc = "Reading replica %d" % n, leave = True, position = ROOT + 2*me,
+                  unit = "B", unit_scale = True, unit_divisor = 1024)
+        
+        # start crawling through the bytes
+        while True:
+            next_line = fobj.readline()
+            if len(next_line) == 0: break
+            # this will only work with lammpstrj traj format.
+            # this condition essentially checks periodic recurrences of the token TIMESTEP.
+            # each time it is found, we have crawled through a frame (snapshot)
+            if next_line == firstline:
+                nframe += 1
+                byteinds.append( [nframe, cur_pos] )
+                pb.update()
+            cur_pos = fobj.tell()
+            pb.update(0)
+        pb.close()
+        
+        # take care of the EOF
+        cur_pos = fobj.tell()
+        byteinds.append( [nframe+1, cur_pos] ) # dummy index for the EOF
+        print("\n") #TODO: do this only from the ROOT proc
+        
+        # write to file
+        np.savetxt(byteindfns[n], np.array(byteinds), fmt = "%d")
+        
+        # close the trajfile object
+        fobj.close()
+        
+        return
+
+
+def write_reordered_traj(temp_inds, outtemps, temps, 
+                         frame_dict, nprod, writefreq,
+                         outtrajfns, infobjs):
+    """
+    Reorders trajectories by temperature and writes them to disk
+    
+    :param temp_inds: list index of temps (in the list of all temps) for which 
+                       reordered trajs will be produced on this proc.
+    
+    :param outtemps: list of all temps for which to produce reordered trajs.
+    
+    :param temps: list of all temps used in the REMD simulation.
+    
+    :param outtrajfns: list of filenames for output (ordered) trajs.
+    
+    :param frame_dict: dict containing a tuple (replica #, frame #) 
+                       for each temperature
+    
+    :param nprod: number of production timesteps. Last (nprod / writefreq) number of 
+                  frames from the end will be written to disk.
+    
+    :param writefreq: traj dump frequency in LAMMPS
+    
+    :param infobjs: list of file pointers to input (unordered) trajs.
     """
     
-    pass
-
-
-def write_reordered_traj():
-    """
-    """
-    pass
-
+    for n in temp_inds:
+        # open string-buffer and file
+        buf = StringIO()
+        of = readwrite(outtrajfns[n], mode = "wb")
+        
+        # get frames
+        abs_temp_ind = np.argmin( abs(temps - outtemps[n]) )
+        this_frames = frame_dict[abs_temp_ind]
+        # retain only production frames
+        if nprod:
+            # write only from ROOT proc
+            if me == ROOT: print("\nRetaining last %d frames" % int(nprod / writefreq) )
+            this_frames = this_framelist[-int(nprod/writefreq) : ]
+        
+        # write frames to buffer
+        #TODO: print this only from root
+        pb = tqdm(this_frames, desc = ("Buffering traj at %3.2f K") % temps[abs_temp_ind],
+                  leave = True, position = ROOT + 2*me,
+                  unit = ' frame', unit_scale = True)
+        for i, (rep, frame) in enumerate(pb):
+            start_ptr = int(byteinds[rep][frame,1])
+            stop_ptr = int(byteinds[rep][frame+1,1])
+            byte_len = stop_ptr - start_ptr
+            infobs[rep].seek(start_ptr)
+            buf.write(infobjlist[rep].read(byte_len))
+        pb.close()
+        
+        # write buffer to disk
+        print("\nWriting buffer to file")
+        of.write(buf.getvalue())
+        of.close()
+        buf.close()
+    
+    for i in infobjs: i.close()
+    
+    return
+        
 
 def write_reordered_energies():
     """
@@ -96,32 +270,7 @@ def get_logw():
     pass
 
 
-# get frames for each replica visited by a particular temp and do this for all temps
-# pretty darn fast so run from ROOT
-MasterRepInds = np.loadtxt(LogFn, skiprows = 3)
-FrameList = {}
-if me == ROOT:
-    # walk through replicas
-    if Verbose: print ('\nGetting replica indices at: ',)
-    for TempInd in range(NRep):
-        if Verbose: print ('%3.2fK' % Temps[TempInd], )
-        RepInds = [np.where(x[1:] == TempInd)[0][0] for x in MasterRepInds]
-        this_FrameList = []
-        # case1: 
-        if WriteFreq <= NStepsSwap:
-            RepInds = RepInds[:-1] # can calculate stop for last frame
-            for ii, i in enumerate(RepInds):
-                start = int (ii * NStepsSwap / WriteFreq)
-                stop = int ( (ii+1) * NStepsSwap / WriteFreq)
-                [this_FrameList.append( (i, x) ) for x in range(start, stop)]
-        # case2: 
-        else:
-            NSkip = int(WriteFreq / NStepsSwap) 
-            for ii, i in enumerate(RepInds[0::NSkip]):
-                this_FrameList.append( (i,ii) )
-        # store
-        FrameList[TempInd] = this_FrameList
-        
+
 
 
 
@@ -302,7 +451,7 @@ else:
             this_FrameList = this_FrameList[-int(NStepsProd/WriteFreq) : ]
         # write frames
         if Verbose:
-            pb = tqdm(this_FrameList, desc = ('Buffering trajectory at %3.2fK') % Temps[AbsTempInd], 
+            pb = tqdm(this_FrameList, desc = ('Buffering traj at %3.2fK') % Temps[AbsTempInd], 
                       leave = True, position = ROOT + 2*me, 
                       unit = ' frame', unit_scale = True)
         else: pb = this_FrameList
