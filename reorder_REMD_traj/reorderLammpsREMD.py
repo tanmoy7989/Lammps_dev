@@ -15,7 +15,7 @@ Usage
 -----
 To get detailed information about the arguments, flags, etc use:
 python reorderLammpsREMD.py -h or 
-python reorderLammpsREMD.py --helps
+python reorderLammpsREMD.py --help
 
 Features of this script
 -----------------------

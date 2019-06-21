@@ -1,1 +1,68 @@
-dcdcv
+LAMMPS Replica Exchange Molecular Dynamics (REMD) trajectories (implemented using the temper command) are arranged by replica, i.e., 
+each trajectory is a continuous replica that records all the ups and downs in temperature. However, often the requirement is 
+trajectories that are continuous in temperature. This requires the LAMMPS REMD trajectories to be re-ordered. 
+This script achieves that in parallel using MPI.
+
+Features of this script
+-----------------------
+a) reorder LAMMPS REMD trajectories by temperature keeping only desired frames.
+Note: this only handles LAMMPS format trajectories (i.e. .lammpstrj format)
+Trajectories can be gzipped or bz2-compressed. The trajectories are assumed to
+be named as <prefix>.%d.lammpstrj[.gz or .bz2]
+
+b) (optionally) calculate configurational weights for each frame at each
+temperature if potential energies are supplied. But this if for the canonical
+(NVT) ensemble only.
+
+Dependencies
+------------
+mpi4py
+pymbar (for getting configurational weights)
+tqdm (for printing pretty progress bars)
+StringIO (or io if in Python 3.x)
+
+Example Usage
+-------------
+Suppose you ran a REMD simulation in Lammps with the following settings:
+-> number of replicas = 8
+-> temperatures used (in K): 270, 294, 322, 352, 384, 419, 457, 500 (i.e. exponentially distributed in the range 270-500 K)
+-> timestep = 1 fs
+-> total number of timesteps simulated using temper = 100000000 (i.e. 100 ns)
+-> swap frequency = temperatures swapped after every this many steps = ns = 2000 (i.e. 2 ps)
+-> write frequency = trajectory frame written to disk after this many steps (using the dump command) = nw = 4000 (i.e. 4 ps)
+
+So, when the dust settles you'll have 8 replica trajectories. For this script to work, each replica traj must be named: 
+<prefix>.<n>.lammpstrj[.gz or .bz2], where prefix = some common prefix for all your trajectories and (say it is called "testprefix")
+n = replica number (0,1,2,3,4,5,6,7 in this case). Note: trajectories MUST BE IN LAMMPS DEFAULT FORMAT (so stuff like dcd won't work)
+
+You will also have a master lammps log file (logfn) that contains the swap history of all the replicas
+(for more details see: https://lammps.sandia.gov/doc/temper.html). Assume that this is called log.lammps
+
+Further you must have a txt file that numpy can read which stores all the temperature values (say this is called temps.txt)
+
+Say your requirements are:
+a) The total number of timesteps you want consider as production (i.e. after equilbration)  = 20000000 (i.e. 20 ns)
+b) Reordered trajectories at temperatures 270 K, 294 K and 352 K.
+c) Configurational log-weight calculation (using pymbar: see more here: https://github.com/choderalab/pymbar). 
+   In this script, this is limited to the canonical (NVT) ensemble and without biasing restraints in your simulation.
+   To do this you'd need to have a file (say called ene.dat) that stores a 2D K-cross-N array of total potential energies
+   where K = total number of replicas = 8, and N = total number of frames in each replica trajectory 
+   ( = 100000000 / 4000 = 25000 in this case) and ene[k,n] = energy from n-th frame of k-th replica.
+
+Assume you have 8 processors at your disposal.
+
+When you run the following:
+mpirun -np 8 python reorderLammpsREMD.py testprefix -logfn log.lammps -tfn temps.txt -ns 2000 -nw 4000 -np 20000000 -ot 280 290 350 -logw -e ene.dat -od ./output
+
+i)    First the temperature swap history file (log.lammps in this case) is read. This is done on one processor since it is usually fast.
+
+ii)   Then the (compressed or otherwise) LAMMPS replica trajectories are read in parallel. So if you have less processors than replicas at this stage, it'll be slower.
+
+iii)  Then using the frame ordering generated in (i), trajectory frames read in (ii) are re-ordered and written to disk in parallel. Each processor writes one trajectory.
+      So, If you request reordered trajectories for less temperatures (3 in this case) than the total number of temperatures (8), then 8-3 = 5 processors will be retired.
+
+iv)   If you have further requested configurational log-weight calculation, then they will be done on a single processor since pymbar is pretty fast.
+
+Finally you will have 3 LAMMPS trajectories of the form testprefix.<temp>.lammpstrj.gz each with 20000000 / 4000 = 5000 frames, 
+where <temp> = 270.00, 294.00, 352.00. If you request reordering at a temperature like say 350 K which is not present in the supplied temp schedule (as written in temps.txt),
+the closest temperature (352 K) will be chosen.
