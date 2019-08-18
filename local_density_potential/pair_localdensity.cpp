@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -15,11 +15,12 @@
    Contributing authors: Tanmoy Sanyal, M.Scott Shell, UC Santa Barbara
 ------------------------------------------------------------------------- */
 
-#include "math.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "string.h"
 #include "pair_localdensity.h"
+#include <mpi.h>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <string>
 #include "atom.h"
 #include "force.h"
 #include "comm.h"
