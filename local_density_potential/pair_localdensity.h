@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -20,29 +20,12 @@ PairStyle(localdensity,PairLOCALDENSITY)
 #ifndef LMP_PAIR_LOCALDENSITY_H
 #define LMP_PAIR_LOCALDENSITY_H
 
-#include "stdio.h"
 #include "pair.h"
 
 namespace LAMMPS_NS {
 
 class PairLOCALDENSITY : public Pair {
  public:
-
-  // public variables 
-
-  double cutmax;
-
-  // data parsed from input file
-
-  int nLD, nrho;	
-  int **a, **b; // central and neighbor atom filters respectively
-  double *uppercut, *lowercut, *uppercutsq, *lowercutsq, *c0, *c2, *c4, *c6; 
-  double **frho, **rho, *rho_min, *rho_max, *delta_rho;
-
-  // potentials in spline form used for force computation
-
-  double ***frho_spline;
-
   PairLOCALDENSITY(class LAMMPS *);
   virtual ~PairLOCALDENSITY();
   virtual void compute(int, int);
@@ -59,6 +42,19 @@ class PairLOCALDENSITY : public Pair {
   double memory_usage();
 
  protected:
+   double cutmax;
+
+  // data parsed from input file
+
+  int nLD, nrho;
+  int **a, **b; // central and neighbor atom filters respectively
+  double *uppercut, *lowercut, *uppercutsq, *lowercutsq, *c0, *c2, *c4, *c6;
+  double **frho, **rho, *rho_min, *rho_max, *delta_rho;
+
+  // potentials in spline form used for force computation
+
+  double ***frho_spline;
+
   int nmax;                   // allocated size of per-atom arrays
   double cutforcesq;          // square of global upper cutoff
 
