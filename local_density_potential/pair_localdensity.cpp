@@ -12,7 +12,9 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing authors: Tanmoy Sanyal, M.Scott Shell, UC Santa Barbara
+   Contributing authors:
+   Tanmoy Sanyal, M.Scott Shell, UC Santa Barbara
+   David Rosenberger, TU Darmstadt
 ------------------------------------------------------------------------- */
 
 #include "pair_localdensity.h"
@@ -42,9 +44,8 @@ PairLOCALDENSITY::PairLOCALDENSITY(LAMMPS *lmp) : Pair(lmp)
   restartinfo = 0;
   one_coeff = 1; 	
   single_enable = 1;
-  DEBUG = 1; // turn this off if display of parsed and splined arrays is not required	
-
-  // read from file
+  
+  // stuff read from tabulated file
   nLD = 0;
   nrho = 0;
   rho_min = NULL;
@@ -70,8 +71,7 @@ PairLOCALDENSITY::PairLOCALDENSITY(LAMMPS *lmp) : Pair(lmp)
   fp = NULL;
   localrho = NULL;  
 
-  // set comm size needed by this Pair
-
+  // set comm size needed by this pair
   comm_forward = 1;
   comm_reverse = 1;
 }
@@ -109,8 +109,6 @@ PairLOCALDENSITY::~PairLOCALDENSITY()
 
   delete [] a;
   delete [] b;
-  
-  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -129,9 +127,13 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = eflag_global = eflag_atom = 0;
 
-  // grow local-density and fp arrays if necessary
+  /* localrho = LD at each atom
+     fp = derivative of embedding energy at each atom for each LD potential
+     uLD = embedding energy of each atom due to each LD potential*/ 
+  
+  // grow LD and fp arrays if necessary
   // need to be atom->nmax in length
-
+  
   if (atom->nmax > nmax) {
     memory->destroy(localrho);
     memory->destroy(fp);
@@ -151,7 +153,7 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
 
-  // zero out density and fp
+  // zero out LD and fp
 
   if (newton_pair) {
     m = nlocal + atom->nghost;
@@ -171,9 +173,7 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
     }
    }
 
-
-  // localrho = local density at each atom
-  // loop over neighbors of my atoms and types of local-densities
+  // loop over neighs of central atoms and types of LDs
   
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -196,7 +196,7 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;	
       
-      // calculating local densities based on central and neighbor filters
+      // calculating LDs based on central and neigh filters
 
       for (k = 0; k < nLD; k++) {
         if (rsq < lowercutsq[k]) {
@@ -209,7 +209,10 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
              phi = c0[k] + rsq * (c2[k] + rsq * (c4[k] + c6[k]*rsq));
         }
         localrho[k][i] += (phi * b[k][jtype]); 
-        //checking for both i,j is necessary since a half neighbor list is processed.
+        
+        /*checking for both i,j is necessary 
+        since a half neighbor list is processed.*/
+        
         if (newton_pair || j<nlocal) {
             localrho[k][j] += (phi * b[k][itype]); 
         }
@@ -217,11 +220,10 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
     }	       
   }
 
-  // communicate and sum densities
+  // communicate and sum LDs over all procs
   if (newton_pair) comm->reverse_comm_pair(this);
 
-  // uLD = embedding energy of each atom due to each LD potential type 
-  // fp = derivative of embedding energy at each atom for each LD potential type
+  // 
 
   for (ii = 0; ii < inum; ii++) {	
     i = ilist[ii];
@@ -230,7 +232,8 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
 
     for (k = 0; k < nLD; k++) {
 
-        // skip over this loop if the LD potential is not for itype
+        /*skip over this loop if the LD potential 
+          is not intendend for central atomtype <itype>*/
         if (!(a[k][itype])) continue; 
             
         // linear extrapolation at rho_min and rho_max
@@ -263,7 +266,7 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
     }
  }
 
-  // communicate derivatives of embedding function and localdensity
+  // communicate LD and fp to all procs
 
   comm->forward_comm_pair(this);
   
@@ -313,7 +316,11 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
             f[j][2] -= delz*fpair;
         }
       
-      if (eflag) evdwl = 0.0; // eng_vdwl has already been completely built, so no need to add anything here
+      /*eng_vdwl has already been completely built, 
+        so no need to add anything here*/
+        
+      if (eflag) evdwl = 0.0;
+      
       if (evflag) ev_tally(i,j,nlocal,newton_pair,
                              evdwl,0.0,fpair,delx,dely,delz);
       }
@@ -323,7 +330,6 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
   
   if (vflag_fdotr) virial_fdotr_compute();
 }
-
 
 
 /* ----------------------------------------------------------------------
@@ -354,7 +360,7 @@ void PairLOCALDENSITY::settings(int narg, char **arg)
 
 /* ----------------------------------------------------------------------
    set coeffs for all type pairs
-   read LD file
+   read tabulated LD input file
 ------------------------------------------------------------------------- */
 
 void PairLOCALDENSITY::coeff(int narg, char **arg)
@@ -402,16 +408,9 @@ void PairLOCALDENSITY::init_style()
   // request half neighbor list
 
   array2spline();
-  if (DEBUG)
-    display();
-
+  
   // half neighbor request
   neighbor->request(this);
-
-  /* //full neighbor list (needed ?)
-  int irequest = neighbor->request(this);
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1; */
 }
 
 /* ----------------------------------------------------------------------
@@ -511,69 +510,49 @@ double PairLOCALDENSITY::single(int i, int j, int itype, int jtype, double rsq,
 }
 
 /*--------------------------------------------------------------------
-   Spline the array frho read in from the file to create
+   spline the array frho read in from the file to create
    frho_spline
 ---------------------------------------------------------------------- */
 
 void PairLOCALDENSITY::array2spline() {
-
-
   memory->destroy(frho_spline);
   memory->create(frho_spline, nLD, nrho, 7, "pairLD:frho_spline");
 
   for (int k = 0; k < nLD; k++)
-    interpolate(nrho, delta_rho[k], frho[k], frho_spline[k]);
+    interpolate_cbspl(nrho, delta_rho[k], frho[k], frho_spline[k]);
 
 }
 
-
 /* ---------------------------------------------------------------------- 
-  Cubic Spline interpolation sub-routine
+  (one-dimensional) cubic spline interpolation sub-routine, 
+  which determines the coeffs for a clamped cubic spline 
+  given tabulated data
  ------------------------------------------------------------------------*/
 
-void PairLOCALDENSITY::interpolate(int n, double delta, double *f, double **spline) {
-/*
-     OBJECTIVE:
-          determine the coefficients for the clamped
-          cubic spline for a given set of data
-
-
-     CALLING SEQUENCE:
-          cubic_clamped ( n, x, f, b, c, d, fpa, fpb );
-
-
-     INPUTS:
-          n		number of interpolating points
-          x		array containing interpolating points
+void PairLOCALDENSITY::interpolate_cbspl(int n, double delta, 
+                                         double *f, double **spline) 
+{
+/*   inputs:
+          n     number of interpolating points
+	
           f		array containing function values to
-			be interpolated;  f[i] is the function
-			value corresponding to x[i]
-          b		array of size at least n; contents will
-			be overwritten
-          c		array of size at least n; contents will
-			be overwritten
-          d		array of size at least n; contents will
-			be overwritten
+			    be interpolated;  f[i] is the function
+			    value corresponding to x[i]
+				('x' refers to the independent var)
+	 
+	 delta     difference in tabulated values
+	           of x
+     
+	 outputs: (packaged as columns of the coeff matrix)
+          b		coeffs of linear terms
+	      c		coeffs of quadratic terms
+	      d		coeffs of cubic terms
+     spline     matrix that collects b,c,d
+     
+	 
+	 other parameters:
           fpa		derivative of function at x=a
           fpb		derivative of function at x=b
-
-
-     OUTPUTS:
-          b		coefficients of linear terms in cubic 
-			spline
-	  c		coefficients of quadratic terms in
-			cubic spline
-	  d		coefficients of cubic terms in cubic
-			spline
-
-     REMARK:
-          remember that the constant terms in the cubic spline
-          are given by the function values being interpolated;
-          i.e., the contents of the f array are the constant
-          terms
-
-          to evaluate the cubic spline, use the routine
-          'spline_eval'
 */
                      
      double *dl, *dd, *du;
@@ -657,10 +636,8 @@ void PairLOCALDENSITY::interpolate(int n, double delta, double *f, double **spli
      delete [] dl;
 }
 
-
-
 /* ----------------------------------------------------------------------
-   read potential values from a single Local Density file
+   read potential values from tabulated LD input file
 ------------------------------------------------------------------------- */
 
 void PairLOCALDENSITY::parse_file(char *filename) {
@@ -681,8 +658,7 @@ void PairLOCALDENSITY::parse_file(char *filename) {
     }
   }
 
-
- double *ftmp; // temprary variable to extract the complete 2D frho array from file
+ double *ftmp; // tmp var to extract the complete 2D frho array from file
    
  // broadcast number of LD potentials and number of (rho,frho) pairs
  if (me == 0) {
@@ -814,14 +790,11 @@ void PairLOCALDENSITY::parse_file(char *filename) {
 
   // delete temporary array
   memory->destroy(ftmp);
-
 }
  
-
 /* ----------------------------------------------------------------------
    communication routines
 ------------------------------------------------------------------------- */
-
 
 int PairLOCALDENSITY::pack_comm(int n, int *list, double *buf, int pbc_flag, int *pbc) {
   int i,j,k;
@@ -896,116 +869,4 @@ double PairLOCALDENSITY::memory_usage()
   bytes += 2 * (nmax*nLD) * sizeof(double);
   return bytes;
 }
-
-
-/* ----------------------------------------------------------------------
-   displaying parsed and splined data (for debugging)
-------------------------------------------------------------------------- */
-
-void PairLOCALDENSITY::display(){
- int i,j,k, m;
- int me = comm->me;
- double p, LD, uLD, duLD, dduLD, delta, *coeff;
-
- if (me == 0) {
-    FILE *parselog = fopen("parselog.txt", "w");
-    if (parselog == NULL) {
-        printf("Error opening file!\n");
-            exit(1);
-    } 
-    fprintf(parselog, "#LD-FILE PARSED, FRHO ARRAY SPLINED\n");
-    fprintf(parselog, "#DATA FLOW TILL NOW (FOR DEBUGGING PURPOSES)\n");
-    fprintf(parselog, "\n\n -------------------------------------------\n\n");
-    fprintf(parselog, "N_LD = %d\n", nLD);
-    fprintf(parselog, "N_RHO = %d\n", nrho);
- 
-    fprintf(parselog, "UPPERCUT: ");	
-    for (k = 0; k < nLD; k++)
-        fprintf(parselog, "%lf\t", uppercut[k]);
-        fprintf(parselog, "\nLOWERCUT: ");	
-    for (k = 0; k < nLD; k++)
-        fprintf(parselog, "%lf\t", lowercut[k]);
-
-    fprintf(parselog, "\nCENTRAL ATOM FILTER\n");
-    for (k = 0; k < nLD; k++){
-        for (i = 1; i <= atom->ntypes; i++)
-            fprintf(parselog, "%d\t", a[k][i]);
-        fprintf(parselog, "\n");
-    }
-
-    fprintf(parselog, "\nNEIGHBOR ATOM FILTER\n");
-    for (k = 0; k < nLD; k++){
-        for (i = 1; i <= atom->ntypes; i++)
-            fprintf(parselog, "%d\t", b[k][i]);
-        fprintf(parselog, "\n");
-    }
-
-    fprintf(parselog, "\nRHO_MIN\tRHO_MAX\tDELTA_RHO\n");
-    for (k = 0; k < nLD; k++) 
-        fprintf(parselog, "%lf\t%lf\t%lf\n", rho_min[k], rho_max[k], delta_rho[k]);
-
-    fprintf(parselog, "\n(RHO, FRHO) AS READ FROM FILE\n");
-    for (k = 0; k < nLD; k++) {
-        fprintf(parselog, ">>> LD POTENTIAL %d\n", k);
-        for (i = 0; i < nrho; i++)
-            fprintf(parselog, "%lf\t%lf\n", rho[k][i], frho[k][i]);
-    }
-
-    fprintf(parselog, "\nFRHO SPLINE COEFFICIENTS\n");
-    for (k = 0; k < nLD; k++) {
-        fprintf(parselog, ">>> LD POTENTIAL %d\n", k);
-        for (i = 0; i < nrho; i++){
-            for (j = 0; j <= 6; j++)
-                fprintf(parselog, "%lf\t", frho_spline[k][i][j]);
-            fprintf(parselog, "\n");
-        }
-    }	
-
-    fprintf(parselog, "\nFRHO FROM SPLINE\n");
-    for (k = 0; k < nLD; k++) {
-        fprintf(parselog, ">>> LD POTENTIAL %d\n", k);
-        j = 3*nrho;
-        delta = (rho_max[k] - rho_min[k]) / j;
-        for (i = 0; i <= j; i++){
-            LD = rho_min[k] + i * delta ;
-            p = (LD - rho_min[k]) / delta_rho[k];
-            m = static_cast<int> (p);
-            m = MAX(0, MIN(m, nrho-2));
-            p -= m;
-            p = MIN(p, 1.0);
-            coeff = frho_spline[k][m];
-            uLD = ((coeff[3]*p + coeff[4])*p + coeff[5])*p + coeff[6];
-            duLD = (coeff[0]*p + coeff[1])*p + coeff[2];
-            dduLD = 2. * coeff[0] * p + coeff[1];
-            fprintf(parselog, "%12.5e\t%12.5e\t%12.5e\t%12.5e\n", LD, uLD, duLD, dduLD);
-        }
-    }	
-
-    fprintf(parselog, "\nFIRST PART OF FRHO FROM SPLINE\n");
-    for (k = 0; k < nLD; k++) {
-        fprintf(parselog, ">>> LD POTENTIAL %d\n", k);
-        j = 20*nrho;
-        delta = (rho_max[k] - rho_min[k]) / j;
-        for (i = 0; i <= 60; i++){
-            LD = rho_min[k] + i * delta ;
-            p = (LD - rho_min[k]) / delta_rho[k];
-            m = static_cast<int> (p);
-            m = MAX(0, MIN(m, nrho-2));
-            p -= m;
-            p = MIN(p, 1.0);
-            coeff = frho_spline[k][m];
-            uLD = ((coeff[3]*p + coeff[4])*p + coeff[5])*p + coeff[6];
-            duLD = (coeff[0]*p + coeff[1])*p + coeff[2];
-            dduLD = 2. * coeff[0] * p + coeff[1];
-            fprintf(parselog, "%12.5e\t%12.5e\t%12.5e\t%12.5e\n", LD, uLD, duLD, dduLD);
-        }
-    }
-
-    fclose(parselog);
-
- }
-
-}
- 
-
 

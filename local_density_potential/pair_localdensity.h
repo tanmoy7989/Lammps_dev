@@ -9,7 +9,12 @@
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
-------------------------------------------------------------------------- */
+-------------------------------------------------------------------------
+   pair_localdensity written by:
+   Tanmoy Sanyal and M. Scott Shell from UC Santa Barbara
+   David Rosenberger: TU Darmstadt
+-------------------------------------------------------------------------*/   
+    
 
 #ifdef PAIR_CLASS
 
@@ -22,63 +27,62 @@ PairStyle(localdensity,PairLOCALDENSITY)
 
 #include "pair.h"
 
+
 namespace LAMMPS_NS {
 
 class PairLOCALDENSITY : public Pair {
- public:
-  PairLOCALDENSITY(class LAMMPS *);
-  virtual ~PairLOCALDENSITY();
-  virtual void compute(int, int);
-  void settings(int, char **);
-  virtual void coeff(int, char **);
-  void init_style();
-  double init_one(int, int);
-  double single(int, int, int, int, double, double, double, double &);	
+  public:
+    PairLOCALDENSITY(class LAMMPS *);
+    virtual ~PairLOCALDENSITY();
+    virtual void compute(int, int);
+    void settings(int, char **);
+    virtual void coeff(int, char **);
+    void init_style();
+    double init_one(int, int);
+    double single(int, int, int, int, double, double, double, double &);
+    
+    virtual int pack_comm(int, int *, double *, int, int *);
+    virtual void unpack_comm(int, int, double *);
+    int pack_reverse_comm(int, int, double *);
+    void unpack_reverse_comm(int, int *, double *);
+    double memory_usage();
 
-  virtual int pack_comm(int, int *, double *, int, int *);
-  virtual void unpack_comm(int, int, double *);
-  int pack_reverse_comm(int, int, double *);
-  void unpack_reverse_comm(int, int *, double *);
-  double memory_usage();
 
- protected:
-   double cutmax;
-
-  // data parsed from input file
-
-  int nLD, nrho;
-  int **a, **b; // central and neighbor atom filters respectively
-  double *uppercut, *lowercut, *uppercutsq, *lowercutsq, *c0, *c2, *c4, *c6;
-  double **frho, **rho, *rho_min, *rho_max, *delta_rho;
-
-  // potentials in spline form used for force computation
-
-  double ***frho_spline;
-
-  int nmax;                   // allocated size of per-atom arrays
-  double cutforcesq;          // square of global upper cutoff
-
-  // per-atom arrays
-
-  double **localrho;     // local density
-  double **fp;           // derivative of embedding function 
-
-  void allocate();     
-  void parse_file(char *);
-  void file2array(); // UNUSED
-  void array2spline();
-  void interpolate(int, double, double *, double **);
-
-  // for debugging
-  int DEBUG;
-  void display();
-  void log_data(double, double, double, double); // UNUSED
-
+  protected:
+    //------------------------------------------------------------------------
+    //This information is read from the tabulated input file
+    
+    int nLD, nrho;                          // number of LD types
+    int **a, **b;                           // central and neig atom filter
+    double *uppercut, *lowercut;            // upper and lower cutoffs
+    double *uppercutsq, *lowercutsq;        // square of above cutoffs
+    double *c0, *c2, *c4, *c6;              // coeffs for indicator function
+    double *rho_min, *rho_max, *delta_rho;  // min, max & grid-size for LDs
+    double **rho, **frho;                   // LD and LD function tables
+    
+    //------------------------------------------------------------------------
+    
+    double ***frho_spline; // splined LD potentials
+    double cutmax;          // max cutoff for all elements
+    double cutforcesq;      // square of global upper cutoff
+    
+    int nmax;               // max size of per-atom arrays
+    double **localrho;     // per-atom LD
+    double **fp;           // per-atom LD potential function derivative
+    
+    void allocate();
+    
+	// read tabulated input file
+	void parse_file(char *);
+    
+	// convert array to spline
+	void array2spline();
+	
+	// cubic spline interpolation
+    void interpolate_cbspl(int, double, double *, double **);
 };
 
 }
 
 #endif
 #endif
-
-
