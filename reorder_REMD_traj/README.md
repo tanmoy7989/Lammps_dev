@@ -1,4 +1,4 @@
-### reorderLAMMPSREMD 
+## reorderLAMMPSREMD 
 
 LAMMPS Replica Exchange Molecular Dynamics (REMD) trajectories (implemented using the temper command) are arranged by replica, i.e., each trajectory is a continuous replica that records all the ups and downs in temperature. However, often the requirement is  that trajectories be continuous in temperature. This requires the LAMMPS REMD trajectories to be re-ordered, which LAMMPS does not do automatically. (see the discussion [here](https://lammps.sandia.gov/threads/msg60440.html)). The reorderLAMMPSREMD tool does exactly this in parallel (using MPI)
 
@@ -14,15 +14,14 @@ LAMMPS Replica Exchange Molecular Dynamics (REMD) trajectories (implemented usin
 
 #### Dependencies
 
-[`mpi4py`](https://mpi4py.readthedocs.io/en/stable/)
-[`pymbar`](https://pymbar.readthedocs.io/en/master/) (for getting configurational weights)
-[`tqdm`](https://github.com/tqdm/tqdm) (for printing pretty progress bars)
+[`mpi4py`](https://mpi4py.readthedocs.io/en/stable/)  
+[`pymbar`](https://pymbar.readthedocs.io/en/master/) (for getting configurational weights)  
+[`tqdm`](https://github.com/tqdm/tqdm) (for printing pretty progress bars)  
 [`StringIO`](https://docs.python.org/2/library/stringio.html) (or [`io`](https://docs.python.org/3/library/io.html) if in Python 3.x)
 
 #### Example
 
 ###### REMD Simulation specs 
-
 Suppose you ran a REMD simulation in Lammps with the following settings:
 
 - number of replicas = 8
@@ -32,10 +31,7 @@ Suppose you ran a REMD simulation in Lammps with the following settings:
 - swap frequency = temperatures swapped after every this many steps = `ns` = 2000 (i.e. 2 ps)
 - write frequency = trajectory frame written to disk after this many steps (using the dump command) = `nw` = 4000 (i.e. 4 ps)
 
-
-
 ###### LAMMPS output
-
 So, when the dust settles,
 
 - You'll have 8 replica trajectories. For this tool to work, each replica traj must be named: `<prefix>.<n>.lammpstrj[.gz or .bz2]`, where,
@@ -47,10 +43,7 @@ So, when the dust settles,
 
 - Further you must have a txt file that numpy can read which stores all the temperature values (say this is called `temps.txt`)
 
-
-
 ######  Your desired output
-
 - The total number of timesteps you want consider as production (i.e. after equilbration)  = 20000000 (i.e. 20 ns)
 
 - Reordered trajectories at temperatures 270 K, 294 K and 352 K.
@@ -61,10 +54,7 @@ So, when the dust settles,
 
   - `ene[k,n]` = energy from n-th frame of k-th replica.
 
-
-
 ###### Using the tool (description of the workflow)
-
 Assume you have 8 processors at your disposal. When you run the following:
 
 ```bash
