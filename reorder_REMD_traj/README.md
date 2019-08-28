@@ -61,7 +61,6 @@ Assume you have 8 processors at your disposal. When you run the following:
 
 ```bash
 mpirun -np 8 python reorderLammpsREMD.py testprefix -logfn log.lammps -tfn temps.txt -ns 2000 -nw 4000 -np 20000000 -ot 280 290 350 -logw -e ene.dat -od ./output
-​```
 ```
 
 1. First the temperature swap history file (`log.lammps` in this case) is read. This is done on one processor since it is usually fast.

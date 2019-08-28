@@ -180,10 +180,14 @@ def get_byte_index(rep_inds, byteindfns, intrajfns):
         nframe = 0
         first_line = fobj.readline()
         cur_pos = fobj.tell()
-        #TODO: print the log from ROOT proc only
-        pb = tqdm(desc = "Reading replica %d" % n, leave = True, 
+        
+        # status printed only for replica read on root proc
+        # this assumes that each proc takes roughly the same time
+        if me == ROOT:
+            pb = tqdm(desc = "Reading replicas", leave = True, 
                   position = ROOT + 2*me, 
-                  unit = "B", unit_scale = True, unit_divisor = 1024)
+                  unit = "B/replica", unit_scale = True, 
+                  unit_divisor = 1024)
         
         # start crawling through the bytes
         while True:
@@ -196,15 +200,14 @@ def get_byte_index(rep_inds, byteindfns, intrajfns):
             if next_line == first_line:
                 nframe += 1
                 byteinds.append( [nframe, cur_pos] )
-                pb.update()
+                if me == ROOT: pb.update()
             cur_pos = fobj.tell()
-            pb.update(0)
-        pb.close()
+            if me == ROOT: pb.update(0)
+        if me == ROOT: pb.close()
         
         # take care of the EOF
         cur_pos = fobj.tell()
         byteinds.append( [nframe+1, cur_pos] ) # dummy index for the EOF
-        print("\n") #TODO: do this only from the ROOT proc
         
         # write to file
         np.savetxt(byteindfns[n], np.array(byteinds), fmt = "%d")
@@ -257,23 +260,27 @@ def write_reordered_traj(temp_inds, byte_inds, outtemps, temps,
         frametuple = frametuple_dict[abs_temp_ind][-nframes:]
          
         # write frames to buffer
-        #TODO: print this only from root
-        pb = tqdm(frametuple, 
-                  desc = ("Buffering traj at %3.2f K") % temps[abs_temp_ind],
+        if me == ROOT:
+            pb = tqdm(frametuple, 
+                  desc = ("Buffering trajectories for writing"),
                   leave = True, position = ROOT + 2*me,
-                  unit = ' frame', unit_scale = True)
+                  unit = 'frame/replica', unit_scale = True)
                   
-        for i, (rep, frame) in enumerate(pb):
+            iterable = pb
+        else:
+            iterable = frametuple
+        
+        for i, (rep, frame) in enumerate(iterable):
             infobj = infobjs[rep]
             start_ptr = int(byte_inds[rep][frame,1])
             stop_ptr = int(byte_inds[rep][frame+1,1])
             byte_len = stop_ptr - start_ptr
             infobj.seek(start_ptr)
             buf.write(infobj.read(byte_len))
-        pb.close()
+        if me == ROOT: pb.close()
         
         # write buffer to disk
-        print("\nWriting buffer to file")
+        if me == ROOT: print("Writing buffer to file")
         of.write(buf.getvalue())
         of.close()
         buf.close()
@@ -318,13 +325,13 @@ def get_canonical_logw(enefn, frametuple_dict, temps, nprod, writefreq,
     """
 
     u_rn = np.loadtxt(enefn)
-    ntemps = ene.shape[0] # number of temps.
+    ntemps = u_rn.shape[0] # number of temps.
     nframes = int(nprod / writefreq) # number of frames at each temp.
     
     # reorder the temps
     u_kn = np.zeros([ntemps, nframes], float)
-    for k in range(K):
-        frame_tuple = framedict[k][-nframes:]
+    for k in range(ntemps):
+        frame_tuple = frametuple_dict[k][-nframes:]
         for i, (rep, frame) in enumerate(frame_tuple):
             u_kn[k, i] = u_rn[rep, frame]
     
@@ -347,9 +354,9 @@ def get_canonical_logw(enefn, frametuple_dict, temps, nprod, writefreq,
     f_k = mbar.f_k
 
     # calculate the log-weights
-    print("\nExtracting normalized log-weights...")
+    print("\nExtracting log-weights...")
     log_nframes = np.log(nframes)
-    logw = dict( (k, np.zeros[ntemps, nframe], float) for k in range(ntemps) )
+    logw = dict( (k, np.zeros([ntemps, nframes], float)) for k in range(ntemps) )
     for l in range(ntemps):
         # get log-weights to reweight to this temp.
         for k in range(ntemps):
@@ -357,9 +364,6 @@ def get_canonical_logw(enefn, frametuple_dict, temps, nprod, writefreq,
                 num = -beta_k[k] * u_kn[k,n]
                 denom = f_k - beta_k[k] * u_kn[k,n]
                 logw[l][k,n] = num - logsumexp(denom) - log_nframes
-        # renormalize
-        logw[l][k,n] -= max(logw[l][k,n])    
-        
     return logw
 
 
@@ -526,7 +530,7 @@ if __name__ == "__main__":
     else:
         nproc_active = nproc
     if me < nproc_active-1:
-        my_temp_inds = range( (me*CHUNKSIZE_2), (me+2)*CHUNKSIZE_1 )
+        my_temp_inds = range( (me*CHUNKSIZE_2), (me+1)*CHUNKSIZE_1 )
     else:
         my_temp_inds = range( (me*CHUNKSIZE_2), n_out_temps)
     
