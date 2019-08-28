@@ -4,12 +4,10 @@
 LAMMPS Replica Exchange Molecular Dynamics (REMD) trajectories are arranged by
 replica, i.e., each trajectory is a continuous replica that records all the 
 ups and downs in temperature. However, often the requirement is trajectories
-that are continuous in temperature. This requires the LAMMPS REMD trajectories
-to be re-ordered. This script achieves that in parallel using MPI.
+that are continuous in temperature, which is achieved by this tool.
 
 Author: 
 Tanmoy Sanyal, Shell lab, Chemical Engineering, UC Santa Barbara
-Presently at Sali lab, Bioengineering and Therapeutic Sciences, UC San Francisco
 
 Usage
 -----

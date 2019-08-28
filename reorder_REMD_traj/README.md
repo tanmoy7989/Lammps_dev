@@ -2,6 +2,8 @@
 
 LAMMPS Replica Exchange Molecular Dynamics (REMD) trajectories (implemented using the temper command) are arranged by replica, i.e., each trajectory is a continuous replica that records all the ups and downs in temperature. However, often the requirement is  that trajectories be continuous in temperature. This requires the LAMMPS REMD trajectories to be re-ordered, which LAMMPS does not do automatically. (see the discussion [here](https://lammps.sandia.gov/threads/msg60440.html)). The reorderLAMMPSREMD tool does exactly this in parallel (using MPI)
 
+(Protein folding trajectories in [Sanyal, Mittal and Shell, JPC, 2019, 151(4), 044111](https://aip.scitation.org/doi/abs/10.1063/1.5108761) were ordered in temperature space using this tool)
+
 #### Features
 
 - reorder LAMMPS REMD trajectories by temperature keeping only desired frames.
