@@ -100,8 +100,8 @@ The superscript on the indicator function $\varphi$ simply indicates that it is 
 a) When the only interaction in the system are LD potentials, use:\\
 \texttt{pair\_style localdensity $\langle$input file$\rangle$} (NO \texttt{pair\_coeff} command)\\
 
-\noindent b) when the system has additional pair styles (e.g. when the LD potential with a pair potential through \texttt{pair\_style hybrid/overlay}, use:\\
-\texttt{pair\_coeff *  * $\langle$input file$\rangle$}
+\noindent b) when the system has additional pair styles (e.g. when the LD potential is combined with a pair potential through \texttt{pair\_style hybrid/overlay}, use:\\
+\texttt{pair\_coeff *  * localdensity $\langle$input file$\rangle$} (instead of a))
 
 \subsubsection*{Input tabulated file format:}
 \begin{tabular}{l l}
