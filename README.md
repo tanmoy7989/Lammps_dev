@@ -10,6 +10,6 @@ This repository contains contributions to the molecular dynamics (MD) software  
 
 Provides the Local Density (LD) potential which is coarse-grained (CG) MD mean-field manybody potential useful for reproducing manybody effects in bottom up CG MD simulations.
 
-###### reorder_REMD_traj
+###### remd_tools
 
-Utility tool written in python to reorder Replica Exchange Molecular Dynamics (REMD) trajectories by temperature which is not done automatically by LAMMPS
+Utility tool written in python to reorder Replica Exchange Molecular Dynamics (REMD) trajectories by temperature.

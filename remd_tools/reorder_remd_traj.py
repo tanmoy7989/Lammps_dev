@@ -8,12 +8,13 @@ that are continuous in temperature, which is achieved by this tool.
 
 Author: 
 Tanmoy Sanyal, Shell lab, Chemical Engineering, UC Santa Barbara
+Email: tanmoy dot 7989 at gmail dot com
 
 Usage
 -----
 To get detailed information about the arguments, flags, etc use:
-python reorderLammpsREMD.py -h or 
-python reorderLammpsREMD.py --helps
+python reorder_remd_traj.py -h or 
+python reorder_remd_traj.py --help
 
 Features of this script
 -----------------------
@@ -44,23 +45,12 @@ from mpi4py import MPI
 from tqdm import tqdm, trange
 import gzip
 try:
-    from StringIO import StringIO
+    # python-2
+    from StringIO import StringIO as IOBuffer
 except ImportError:
-    from io import StringIO
+    # python-3
+    from io import BytesIO as IOBuffer
 
-try:
-    import pymbar
-except ImportError:
-    print("""
-          Configurational log-weight calculation requires pymbar.
-          Here are some options to install it:
-          conda install -c omnia pymbar
-          pip install pymbar
-          
-          To install the dev. version directly from github, use:
-          pip install pip install git+https://github.com/choderalab/pymbar.git
-          """)
-          
 
 
 #### INITIALISE MPI ####
@@ -252,7 +242,7 @@ def write_reordered_traj(temp_inds, byte_inds, outtemps, temps,
     
     for n in temp_inds:
         # open string-buffer and file
-        buf = StringIO()
+        buf = IOBuffer()
         of = readwrite(outtrajfns[n], mode = "wb")
         
         # get frames
@@ -323,7 +313,20 @@ def get_canonical_logw(enefn, frametuple_dict, temps, nprod, writefreq,
                    to reweight to the l-th temp.
     
     """
-
+    
+    try:
+        import pymbar
+    except ImportError:
+        print("""
+              Configurational log-weight calculation requires pymbar.
+              Here are some options to install it:
+              conda install -c omnia pymbar
+              pip install pymbar
+          
+              To install the dev. version directly from github, use:
+              pip install pip install git+https://github.com/choderalab/pymbar.git
+              """)
+              
     u_rn = np.loadtxt(enefn)
     ntemps = u_rn.shape[0] # number of temps.
     nframes = int(nprod / writefreq) # number of frames at each temp.
@@ -459,6 +462,7 @@ if __name__ == "__main__":
     # check if the trajs. (or their zipped versions are present)
     for i in range(ntemps):
         this_intrajfn = intrajfns[i]
+        x = this_intrajfn + ".gz"
         if os.path.isfile(this_intrajfn): continue
         elif os.path.isfile(this_intrajfn + ".gz"):
             intrajfns[i] = this_intrajfn + ".gz"
