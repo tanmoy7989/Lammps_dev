@@ -100,8 +100,8 @@ The superscript on the indicator function $\varphi$ simply indicates that it is 
 a) When the only interaction in the system are LD potentials, use:\\
 \texttt{pair\_style localdensity $\langle$input file$\rangle$} (NO \texttt{pair\_coeff} command)\\
 
-\noindent b) when the system has additional pair styles (e.g. when the LD potential is combined with a pair potential through \texttt{pair\_style hybrid/overlay}, use:\\
-\texttt{pair\_coeff *  * localdensity $\langle$input file$\rangle$} (instead of a))
+\noindent b) When the system has additional pair styles (e.g. when the LD potential is combined with a pair potential through \texttt{pair\_style hybrid/overlay}, use:\\
+\texttt{pair\_coeff *  * localdensity $\langle$input file$\rangle$} (instead of (a) )
 
 \subsubsection*{Input tabulated file format:}
 \begin{tabular}{l l}
@@ -117,8 +117,8 @@ Line 9: 	& $F^{(k)}(\rho_{min} + 0.\Delta \rho)$\\
 Line 10:	& $F^{(k)}(\rho_{min} + 1.\Delta \rho)$\\
 Line 11:	& $F^{(k)}(\rho_{min} + 2.\Delta \rho)$\\
 ............& { }\\
-Line 8+$N_\rho$: &  $F^{(k)}(\rho_{min} + N_\rho . \Delta \rho)$\\	
-Line 9+$N_\rho$: & blank (ignored)\\
+Line 9+$N_\rho$: &  $F^{(k)}(\rho_{min} + N_\rho . \Delta \rho)$\\	
+Line 10+$N_\rho$: & blank (ignored)\\
 \\
 Block 2 & { }\\
 \\
@@ -128,7 +128,7 @@ Block $N_{LD}$ & { }
 \end{tabular}
 \\
 
-\noindent Lines 5 to 9+$N_\rho$ constitute the first block. Thus the input file is separated into blocks each representing a separate LD potential and each specifying its own upper and lower cutoffs, central and neighbor atoms, and potential.  In general, blank lines anywhere are ignored. 
+\noindent Lines 5 to 9+$N_\rho$ constitute the first block. Thus the input file is separated (by blank lines) into $N_{LD}$ blocks each representing a separate LD potential and each specifying its own upper and lower cutoffs, central and neighbor atoms, and potential.  In general, blank lines anywhere are ignored. 
 %
 %
 %
