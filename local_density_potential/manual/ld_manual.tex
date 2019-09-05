@@ -94,14 +94,14 @@ The superscript on the indicator function $\varphi$ simply indicates that it is 
 %
 \section*{LAMMPS implementation}
 \subsubsection*{Name of the pair style}
-\texttt{localdensity}
+\texttt{local/density}
 %
 \subsubsection*{How to write in an input script}
 a) When the only interaction in the system are LD potentials, use:\\
-\texttt{pair\_style localdensity $\langle$input file$\rangle$} (NO \texttt{pair\_coeff} command)\\
+\texttt{pair\_style local/density $\langle$input file$\rangle$} (NO \texttt{pair\_coeff} command)\\
 
 \noindent b) When the system has additional pair styles (e.g. when the LD potential is combined with a pair potential through \texttt{pair\_style hybrid/overlay}, use:\\
-\texttt{pair\_coeff *  * localdensity $\langle$input file$\rangle$} (instead of (a) )
+\texttt{pair\_coeff *  * local/density $\langle$input file$\rangle$} (instead of (a) )
 
 \subsubsection*{Input tabulated file format:}
 \begin{tabular}{l l}

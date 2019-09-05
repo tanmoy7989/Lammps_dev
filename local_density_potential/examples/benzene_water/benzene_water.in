@@ -16,7 +16,7 @@ units           real
 atom_style      molecular
 
 # Set potential styles
-pair_style      hybrid/overlay table spline 500 localdensity
+pair_style      hybrid/overlay table spline 500 local/density
 
 # Read molecule data and set initial velocities
 read_data       benzene_water.data
@@ -26,7 +26,7 @@ velocity        all create  3.0000e+02 16611 rot yes dist gaussian
 pair_coeff          1     1    table          benzene_water.pair.table      PairBB
 pair_coeff          1     2    table          benzene_water.pair.table      PairWW
 pair_coeff          2     2    table          benzene_water.pair.table      PairBW
-pair_coeff          *     *    localdensity   benzene_water.localdensity.table
+pair_coeff          *     *    local/density  benzene_water.localdensity.table
 
 # Recentering during minimization and equilibration
 fix recentering all recenter 0.0 0.0 0.0 units box

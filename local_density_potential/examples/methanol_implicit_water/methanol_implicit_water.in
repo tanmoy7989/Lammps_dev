@@ -14,7 +14,7 @@ units           real
 atom_style      molecular
 
 # Set potential styles
-pair_style      hybrid/overlay table spline 500 localdensity
+pair_style      hybrid/overlay table spline 500 local/density
 
 # Read molecule data and set initial velocities
 read_data       methanol_implicit_water.data 
@@ -22,7 +22,7 @@ velocity        all create  3.0000e+02 12142 rot yes dist gaussian
 
 # Assign potentials
 pair_coeff          1     1 table         methanol_implicit_water.pair.table PairMM
-pair_coeff          *     * localdensity  methanol_implicit_water.localdensity.table
+pair_coeff          *     * local/density methanol_implicit_water.localdensity.table
 
 
 

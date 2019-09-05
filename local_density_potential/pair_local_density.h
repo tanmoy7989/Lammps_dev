@@ -10,7 +10,7 @@
 
    See the README file in the top-level LAMMPS directory.
 -------------------------------------------------------------------------
-   pair_localdensity written by:
+   pair_LocalDensity written by:
    Tanmoy Sanyal and M. Scott Shell from UC Santa Barbara
    David Rosenberger: TU Darmstadt
 -------------------------------------------------------------------------*/   
@@ -18,22 +18,22 @@
 
 #ifdef PAIR_CLASS
 
-PairStyle(localdensity,PairLOCALDENSITY)
+PairStyle(local/density,PairLocalDensity)
 
 #else
 
-#ifndef LMP_PAIR_LOCALDENSITY_H
-#define LMP_PAIR_LOCALDENSITY_H
+#ifndef LMP_PAIR_LOCAL_DENSITY_H
+#define LMP_PAIR_LOCAL_DENSITY_H
 
 #include "pair.h"
 
 
 namespace LAMMPS_NS {
 
-class PairLOCALDENSITY : public Pair {
+class PairLocalDensity : public Pair {
   public:
-    PairLOCALDENSITY(class LAMMPS *);
-    virtual ~PairLOCALDENSITY();
+    PairLocalDensity(class LAMMPS *);
+    virtual ~PairLocalDensity();
     virtual void compute(int, int);
     void settings(int, char **);
     virtual void coeff(int, char **);
@@ -53,7 +53,7 @@ class PairLOCALDENSITY : public Pair {
     //This information is read from the tabulated input file
     
     int nLD, nrho;                          // number of LD types
-    int **a, **b;                           // central and neig atom filter
+    int **a, **b;                           // central and neigh atom filters
     double *uppercut, *lowercut;            // upper and lower cutoffs
     double *uppercutsq, *lowercutsq;        // square of above cutoffs
     double *c0, *c2, *c4, *c6;              // coeffs for indicator function

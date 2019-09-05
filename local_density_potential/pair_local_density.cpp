@@ -17,7 +17,7 @@
    David Rosenberger, TU Darmstadt
 ------------------------------------------------------------------------- */
 
-#include "pair_localdensity.h"
+#include "pair_local_density.h"
 #include <mpi.h>
 #include <cmath>
 #include <cstdlib>
@@ -35,22 +35,11 @@
 
 using namespace LAMMPS_NS;
 
-static const char cite_user_ld_package[] =
-  "USER-LD package:\n\n"
-  "@Article{sanyal_2018,\n"
-  " author = {T. Sanyal, M. S. Shell},\n"
-  " title = {Transferable coarse-grained models of liquid-liquid equilibrium using local density potentials optimized with the relative entropy},\n"
-  " journal = {J.~Phys.~Chem. B},\n"
-  " year =    2018,\n"
-  " volume =  122(21),\n"
-  " pages =   {5678-5693}\n"
-  "}\n\n";
-
 #define MAXLINE 1024
 
 /* ---------------------------------------------------------------------- */
 
-PairLOCALDENSITY::PairLOCALDENSITY(LAMMPS *lmp) : Pair(lmp)
+PairLocalDensity::PairLocalDensity(LAMMPS *lmp) : Pair(lmp)
 {
   restartinfo = 0;
   one_coeff = 1; 	
@@ -91,7 +80,7 @@ PairLOCALDENSITY::PairLOCALDENSITY(LAMMPS *lmp) : Pair(lmp)
    check if allocated, since class can be destructed when incomplete
 ------------------------------------------------------------------------- */
 
-PairLOCALDENSITY::~PairLOCALDENSITY()
+PairLocalDensity::~PairLocalDensity()
 {
 
   memory->destroy(localrho);
@@ -118,13 +107,13 @@ PairLOCALDENSITY::~PairLOCALDENSITY()
   memory->destroy(frho);
   memory->destroy(rho);
 
-  delete [] a;
-  delete [] b;
+  memory->destroy(a);
+  memory->destroy(b);
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::compute(int eflag, int vflag)
+void PairLocalDensity::compute(int eflag, int vflag)
 {
   
   int i,j,ii,jj,m,k,inum,jnum,itype,jtype;
@@ -347,7 +336,7 @@ void PairLOCALDENSITY::compute(int eflag, int vflag)
    allocate all arrays
 ------------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::allocate()
+void PairLocalDensity::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
@@ -364,7 +353,7 @@ void PairLOCALDENSITY::allocate()
    global settings
 ------------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::settings(int narg, char **arg)
+void PairLocalDensity::settings(int narg, char **arg)
 {
   if (narg > 0) error->all(FLERR,"Illegal pair_style command");
 }
@@ -374,7 +363,7 @@ void PairLOCALDENSITY::settings(int narg, char **arg)
    read tabulated LD input file
 ------------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::coeff(int narg, char **arg)
+void PairLocalDensity::coeff(int narg, char **arg)
 {
   int i, j;
   if (!allocated) allocate();
@@ -413,7 +402,7 @@ void PairLOCALDENSITY::coeff(int narg, char **arg)
    init specific to this pair style
 ------------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::init_style()
+void PairLocalDensity::init_style()
 {
   // spline rho and frho arrays
   // request half neighbor list
@@ -428,7 +417,7 @@ void PairLOCALDENSITY::init_style()
    init for one type pair i,j and corresponding j,i
 ------------------------------------------------------------------------- */
 
-double PairLOCALDENSITY::init_one(int i, int j)
+double PairLocalDensity::init_one(int i, int j)
 {
   // single global cutoff = max of all uppercuts read in from LD file
 
@@ -447,7 +436,7 @@ double PairLOCALDENSITY::init_one(int i, int j)
   of the LD potential without doing an actual MD run
  ---------------------------------------------------------------------------*/
 
-double PairLOCALDENSITY::single(int i, int j, int itype, int jtype, double rsq,
+double PairLocalDensity::single(int i, int j, int itype, int jtype, double rsq,
                          double factor_coul, double factor_lj,
                          double &fforce)
 {
@@ -525,7 +514,7 @@ double PairLOCALDENSITY::single(int i, int j, int itype, int jtype, double rsq,
    frho_spline
 ---------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::array2spline() {
+void PairLocalDensity::array2spline() {
   memory->destroy(frho_spline);
   memory->create(frho_spline, nLD, nrho, 7, "pairLD:frho_spline");
 
@@ -540,25 +529,24 @@ void PairLOCALDENSITY::array2spline() {
   given tabulated data
  ------------------------------------------------------------------------*/
 
-void PairLOCALDENSITY::interpolate_cbspl(int n, double delta, 
+void PairLocalDensity::interpolate_cbspl(int n, double delta, 
                                          double *f, double **spline) 
 {
 /*   inputs:
-          n     number of interpolating points
+          n         number of interpolating points
 	
-          f		array containing function values to
-			    be interpolated;  f[i] is the function
-			    value corresponding to x[i]
-				('x' refers to the independent var)
+          f		    array containing function values to
+			        be interpolated;  f[i] is the function
+			        value corresponding to x[i]
+				    ('x' refers to the independent var)
 	 
-	 delta     difference in tabulated values
-	           of x
+	      delta     difference in tabulated values of x
      
 	 outputs: (packaged as columns of the coeff matrix)
-          b		coeffs of linear terms
-	      c		coeffs of quadratic terms
-	      d		coeffs of cubic terms
-     spline     matrix that collects b,c,d
+          coeff_b	coeffs of linear terms
+	      coeff_c	coeffs of quadratic terms
+	      coeff_d	coeffs of cubic terms
+          spline    matrix that collects b,c,d
      
 	 
 	 other parameters:
@@ -567,21 +555,21 @@ void PairLOCALDENSITY::interpolate_cbspl(int n, double delta,
 */
                      
      double *dl, *dd, *du;
-     double *b, *c, *d;
+     double *coeff_b, *coeff_c, *coeff_d;
      double fpa, fpb;
 
      int i;
      
-     b = new double [n];
-     c = new double [n];
-     d = new double [n];
+     coeff_b = new double [n];
+     coeff_c = new double [n];
+     coeff_d = new double [n];
      dl = new double [n];
      dd = new double [n];
      du = new double [n];
 
      // initialize values
      for ( i = 0; i<n; i++) {
-         b[i] = c[i] = d[i] = 0.;
+         coeff_b[i] = coeff_c[i] = coeff_d[i] = 0.;
          dl[i] = dd[i] = du[i] = 0.;
      }
 
@@ -595,12 +583,12 @@ void PairLOCALDENSITY::interpolate_cbspl(int n, double delta,
      
      dd[0] = 2.0 * delta;
      dd[n-1] = 2.0 * delta;
-     c[0] = ( 3.0 / delta ) * ( f[1] - f[0] ) - 3.0 * fpa;
-     c[n-1] = 3.0 * fpb - ( 3.0 / delta ) * ( f[n-1] - f[n-2] );
+     coeff_c[0] = ( 3.0 / delta ) * ( f[1] - f[0] ) - 3.0 * fpa;
+     coeff_c[n-1] = 3.0 * fpb - ( 3.0 / delta ) * ( f[n-1] - f[n-2] );
      for ( i = 0; i < n-2; i++ ) {
          dd[i+1] = 4.0 * delta;
-         c[i+1] = ( 3.0 / delta ) * ( f[i+2] - f[i+1] ) -
-                  ( 3.0 / delta ) * ( f[i+1] - f[i] );
+         coeff_c[i+1] = ( 3.0 / delta ) * ( f[i+2] - f[i+1] ) -
+                        ( 3.0 / delta ) * ( f[i+1] - f[i] );
      }
      
      // tridiagonal solver
@@ -609,39 +597,39 @@ void PairLOCALDENSITY::interpolate_cbspl(int n, double delta,
          dd[i+1] -= dl[i]*du[i];
      }
      
-     c[0] /= dd[0];
+     coeff_c[0] /= dd[0];
      for ( i = 1; i < n; i++ )
-         c[i] = ( c[i] - dl[i-1] * c[i-1] ) / dd[i];
+         coeff_c[i] = ( coeff_c[i] - dl[i-1] * coeff_c[i-1] ) / dd[i];
          
      for ( i = n-2; i >= 0; i-- )
-         c[i] -= c[i+1] * du[i];
+         coeff_c[i] -= coeff_c[i+1] * du[i];
      
      for ( i = 0; i < n-1; i++ ) {
-         d[i] = ( c[i+1] - c[i] ) / ( 3.0 * delta );
-         b[i] = ( f[i+1] - f[i] ) / delta - delta * ( c[i+1] + 2.0*c[i] ) / 3.0;
+         coeff_d[i] = ( coeff_c[i+1] - coeff_c[i] ) / ( 3.0 * delta );
+         coeff_b[i] = ( f[i+1] - f[i] ) / delta - delta * ( coeff_c[i+1] + 2.0*coeff_c[i] ) / 3.0;
      }
 
      // normalize
      for ( i = 0; i < n-1; i++ ) {
-         b[i] = b[i] * delta ;
-         c[i] = c[i] * delta*delta ;
-         d[i] = d[i] * delta*delta*delta;
+         coeff_b[i] = coeff_b[i] * delta ;
+         coeff_c[i] = coeff_c[i] * delta*delta ;
+         coeff_d[i] = coeff_d[i] * delta*delta*delta;
      }
 
      //copy to coefficient matrix
      for ( i = 0; i < n; i++) {
-         spline[i][3] = d[i];
-         spline[i][4] = c[i];
-         spline[i][5] = b[i];
+         spline[i][3] = coeff_d[i];
+         spline[i][4] = coeff_c[i];
+         spline[i][5] = coeff_b[i];
          spline[i][6] = f[i];
          spline[i][2] = spline[i][5]/delta;
          spline[i][1] = 2.0*spline[i][4]/delta;
          spline[i][0] = 3.0*spline[i][3]/delta;
      }
      
-     delete [] b;
-     delete [] c;
-     delete [] d;
+     delete [] coeff_b;
+     delete [] coeff_c;
+     delete [] coeff_d;
      delete [] du;
      delete [] dd;
      delete [] dl;
@@ -651,7 +639,7 @@ void PairLOCALDENSITY::interpolate_cbspl(int n, double delta,
    read potential values from tabulated LD input file
 ------------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::parse_file(char *filename) {
+void PairLocalDensity::parse_file(char *filename) {
     
   int k, n;
   int me = comm->me;
@@ -807,7 +795,7 @@ void PairLOCALDENSITY::parse_file(char *filename) {
    communication routines
 ------------------------------------------------------------------------- */
 
-int PairLOCALDENSITY::pack_comm(int n, int *list, double *buf, int pbc_flag, int *pbc) {
+int PairLocalDensity::pack_comm(int n, int *list, double *buf, int pbc_flag, int *pbc) {
   int i,j,k;
   int m; 	
 
@@ -824,7 +812,7 @@ int PairLOCALDENSITY::pack_comm(int n, int *list, double *buf, int pbc_flag, int
 
 /* ---------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::unpack_comm(int n, int first, double *buf) {
+void PairLocalDensity::unpack_comm(int n, int first, double *buf) {
 
   int i,k,m,last;
   
@@ -839,7 +827,7 @@ void PairLOCALDENSITY::unpack_comm(int n, int first, double *buf) {
 
 /* ---------------------------------------------------------------------- */
 
-int PairLOCALDENSITY::pack_reverse_comm(int n, int first, double *buf) {
+int PairLocalDensity::pack_reverse_comm(int n, int first, double *buf) {
 
   int i,k,m,last;
 
@@ -855,7 +843,7 @@ int PairLOCALDENSITY::pack_reverse_comm(int n, int first, double *buf) {
 
 /* ---------------------------------------------------------------------- */
 
-void PairLOCALDENSITY::unpack_reverse_comm(int n, int *list, double *buf) {
+void PairLocalDensity::unpack_reverse_comm(int n, int *list, double *buf) {
 
   int i,j,k;
   int m;
@@ -873,7 +861,7 @@ void PairLOCALDENSITY::unpack_reverse_comm(int n, int *list, double *buf) {
    memory usage of local atom-based arrays
 ------------------------------------------------------------------------- */
 
-double PairLOCALDENSITY::memory_usage()
+double PairLocalDensity::memory_usage()
 {
   double bytes = maxeatom * sizeof(double);
   bytes += maxvatom*6 * sizeof(double);
