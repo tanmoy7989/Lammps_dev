@@ -6,7 +6,7 @@ This repository contains contributions to the molecular dynamics (MD) software  
 
 
 
-###### USER-LD
+###### local_density_potential
 
 Provides the Local Density (LD) potential which is coarse-grained (CG) MD mean-field manybody potential useful for reproducing manybody effects in bottom up CG MD simulations.
 
