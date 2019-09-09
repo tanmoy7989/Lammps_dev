@@ -354,7 +354,7 @@ def get_canonical_logw(enefn, frametuple_dict, temps, nprod, writefreq,
     # run pymbar and extract the free energies
     print("\nRunning pymbar...")
     mbar = pymbar.mbar.MBAR(u_kln, nframes_k, verbose = True)
-    f_k = mbar.f_k # (1 x k array)
+    f_k = mbar.f_k # (1 x ntemps array)
 
     # calculate the log-weights
     print("\nExtracting log-weights...")
