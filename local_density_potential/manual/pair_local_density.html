@@ -27,12 +27,12 @@ pair_coeff * * local/density  benzene_water.localdensity.table
 </PRE>
 <P><B>Description:</B>
 </P>
-<P>The local density (LD) potential is a new potential style that is, in some 
+<P>The local density (LD) potential is a mean-field manybody potential, and, in some 
 sense,a generalization of embedded atom models (EAM). The name "local density 
 potential" arises from the fact that it assigns an energy to an atom depending 
 on the number of neighboring atoms of given type around it within a predefined 
 spherical volume (i.e., within a cutoff). The bottom-up coarse-graining (CG)
-literature sugggests that such potentials can be widely useful  in capturing 
+literature suggests that such potentials can be widely useful  in capturing 
 effective multibody forces in a computationally efficient manner so as to 
 improve the quality of CG models of implicit solvation<A HREF = "#Sanyal1">(Sanyal1)</A> and 
 phase-segregation in liquid mixtures<A HREF = "#Sanyal2">(Sanyal2)</A>, and provide guidelines 
@@ -48,7 +48,7 @@ upon initialization.
 <P>NOTE: Thus when used as the only interaction in the system, there is no 
 corresponding pair_coeff command and when used with other pair styles using the 
 hybrid/overlay option, the corresponding pair_coeff command must be supplied
-*  * as placeholders for the atomtypes.
+*  * as placeholders for the atom types.
 </P>
 <HR>
 
@@ -140,27 +140,27 @@ one must specify:
 
 <P><B>Tabulated input file format:</B>
 </P>
-<UL><LI>Line 1:             comment or blank (ignored)
-<LI>Line 2:             comment or blank (ignored)
-<LI>Line 3:             N_LD N_rho (# of LD potentials and # of tabulated values, single space separated)
-<LI>Line 4:             blank (ignored)
-<LI>Line 5:             R1(k) R2(k) (lower and upper cutoffs, single space separated)
-<LI>Line 6: 	        central-types (central atom types, single space separated)
-<LI>Line 7: 	        neighbor-types (neighbor atom types single space separated)
-<LI>Line 8: 	        rho_min rho_max drho (min, max and diff. in tabulated rho values, single space separated)
-<LI>Line 9: 	        F(k)(rho_min + 0.drho)
-<LI>Line 10:	        F(k)(rho_min + 1.drho)
-<LI>Line 11:	        F(k)(rho_min + 2.drho)
-<LI>............ 
-<LI>Line 9+N_rho:       F(k)(rho_min + N_rho . drho)
-<LI>Line 10+N_rho:      blank (ignored) 
-</UL>
-<UL><LI>Block 2 
-</UL>
-<UL><LI>Block 3 
-</UL>
-<UL><LI>Block N_LD 
-</UL>
+<PRE>Line 1:             comment or blank (ignored)
+Line 2:             comment or blank (ignored)
+Line 3:             N_LD N_rho (# of LD potentials and # of tabulated values, single space separated)
+Line 4:             blank (ignored)
+Line 5:             R1(k) R2(k) (lower and upper cutoffs, single space separated)
+Line 6:             central-types (central atom types, single space separated)
+Line 7:             neighbor-types (neighbor atom types single space separated)
+Line 8:             rho_min rho_max drho (min, max and diff. in tabulated rho values, single space separated)
+Line 9:             F(k)(rho_min + 0.drho)
+Line 10:            F(k)(rho_min + 1.drho)
+Line 11:            F(k)(rho_min + 2.drho)
+...
+Line 9+N_rho:       F(k)(rho_min + N_rho . drho)
+Line 10+N_rho:      blank (ignored) 
+</PRE>
+<PRE>Block 2 
+</PRE>
+<PRE>Block 3 
+</PRE>
+<PRE>Block N_LD 
+</PRE>
 <P>Lines 5 to 9+N_rho constitute the first block. Thus the input file is separated 
 (by blank lines) into N_LD blocks each representing a separate LD potential and 
 each specifying its own upper and lower cutoffs, central and neighbor atoms, 
